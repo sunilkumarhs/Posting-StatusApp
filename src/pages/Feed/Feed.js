@@ -7,6 +7,7 @@ import Input from "../../components/Form/Input/Input";
 import Paginator from "../../components/Paginator/Paginator";
 import Loader from "../../components/Loader/Loader";
 import ErrorHandler from "../../components/ErrorHandler/ErrorHandler";
+import openScoket from "socket.io-client";
 import "./Feed.css";
 
 class Feed extends Component {
@@ -35,8 +36,53 @@ class Feed extends Component {
       .catch(this.catchError);
 
     this.loadPosts();
+    const socket = openScoket("http://localhost:8080");
+    socket.on("posts", (data) => {
+      if (data.action === "create") {
+        this.addPost(data.post);
+      }
+      if (data.action === "update") {
+        this.updatePost(data.post);
+      }
+      if (data.action === "delete") {
+        this.deletePost(data.post);
+      }
+    });
   }
 
+  addPost = (post) => {
+    this.setState((prevState) => {
+      const updatedPosts = [...prevState.posts];
+      if (prevState.postPage === 1) {
+        if (prevState.posts.length >= 2) {
+          updatedPosts.pop();
+        }
+        updatedPosts.unshift(post);
+      }
+      return {
+        posts: updatedPosts,
+        totalPosts: prevState.totalPosts + 1,
+      };
+    });
+  };
+  updatePost = (post) => {
+    this.setState((prevState) => {
+      let updatedPosts = [...prevState.posts];
+      const postIndex = prevState.posts.findIndex((p) => p._id === post._id);
+      updatedPosts[postIndex] = post;
+      return {
+        posts: updatedPosts,
+      };
+    });
+  };
+
+  deletePost = (post) => {
+    this.loadPosts();
+    // this.setState((prevState) => {
+    //   const updatedPosts = prevState.posts.filter((p) => p._id !== post._id);
+    //   return { posts: updatedPosts, postsLoading: false };
+    // });
+  };
   loadPosts = (direction) => {
     if (direction) {
       this.setState({ postsLoading: true, posts: [] });
@@ -145,7 +191,7 @@ class Feed extends Component {
           content: resData.post.content,
           imagePath: resData.post.imageUrl,
           imageUrl: resData.post.imageUrl,
-          creator: resData.post.creator,
+          creator: resData.creator,
           createdAt: resData.post.createdAt,
         };
         this.setState((prevState) => {
@@ -196,11 +242,11 @@ class Feed extends Component {
         return res.json();
       })
       .then((resData) => {
-        console.log(resData);
-        this.setState((prevState) => {
-          const updatedPosts = prevState.posts.filter((p) => p._id !== postId);
-          return { posts: updatedPosts, postsLoading: false };
-        });
+        this.loadPosts();
+        // this.setState((prevState) => {
+        //   const updatedPosts = prevState.posts.filter((p) => p._id !== postId);
+        //   return { posts: updatedPosts, postsLoading: false };
+        // });
       })
       .catch((err) => {
         console.log(err);
